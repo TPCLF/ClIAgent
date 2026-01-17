@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=CLIAgent
+Comment=Terminal AI Coding Agent with Ollama LLMs
+Exec=/home/user/CLIAgent/launch_cliagent.sh
+Icon=utilities-terminal
+Terminal=false
+Categories=Development;Utility;IDE;
+Keywords=ai;coding;llm;terminal;agent;
+Path=/home/user/CLIAgent

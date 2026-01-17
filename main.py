@@ -140,6 +140,29 @@ def interactive(model):
                 print_info(result)
                 continue
             
+            if user_input.lower() == 'session:info':
+                state = agent.session_state
+                print(f"\n{Fore.CYAN}📋 Current Session Info:{Style.RESET_ALL}")
+                print(f"  Messages: {len(state.get('messages', []))}")
+                print(f"  Files Created: {len(state.get('files_created', []))}")
+                print(f"  Project Context: {state.get('project_context', 'None')}")
+                print(f"  Session Start: {state.get('session_start', 'Unknown')}\n")
+                continue
+            
+            if user_input.lower() == 'session:reset':
+                config.reset_session()
+                agent = Agent()  # Reinitialize with fresh state
+                print_success("Session reset - starting fresh\n")
+                continue
+            
+            if user_input.lower() == 'session:archive':
+                archived_path = config.archive_session()
+                if archived_path:
+                    print_success(f"Session archived to: {archived_path}\n")
+                else:
+                    print_error("No session to archive\n")
+                continue
+            
             if not user_input:
                 continue
             
@@ -219,12 +242,15 @@ def print_help_commands():
     """Print available commands in interactive mode."""
     help_text = f"""
 {Fore.CYAN}Available Commands:{Style.RESET_ALL}
-  help          - Show this help
-  status        - Show agent status
-  models        - List available models
-  model:<name>  - Switch to a model
-  exit/quit     - Exit the session
-  <prompt>      - Execute a task with AI agent
+  help             - Show this help
+  status           - Show agent status
+  models           - List available models
+  model:<name>     - Switch to a model
+  session:info     - Show current session info
+  session:reset    - Start a fresh session
+  session:archive  - Archive current session
+  exit/quit        - Exit the session
+  <prompt>         - Execute a task with AI agent
 """
     print(help_text)
 
@@ -240,6 +266,45 @@ def web():
     content = agent.fetch_web(url)
     print(f"\n{Fore.CYAN}Content ({len(content)} chars):{Style.RESET_ALL}")
     print(content[:500] + "..." if len(content) > 500 else content)
+
+
+@cli.command()
+def session_info():
+    """Show current session information."""
+    print_header()
+    agent = Agent()
+    state = agent.session_state
+    
+    print(f"\n{Fore.CYAN}📋 Current Session Info:{Style.RESET_ALL}")
+    print(f"  {Fore.YELLOW}Messages:{Style.RESET_ALL} {len(state.get('messages', []))}")
+    print(f"  {Fore.YELLOW}Files Created:{Style.RESET_ALL} {len(state.get('files_created', []))}")
+    
+    if state.get('files_created'):
+        print(f"\n  Files:")
+        for f in state.get('files_created', [])[-10:]:
+            print(f"    - {f}")
+    
+    print(f"\n  {Fore.YELLOW}Project Context:{Style.RESET_ALL} {state.get('project_context', 'None')}")
+    print(f"  {Fore.YELLOW}Session Start:{Style.RESET_ALL} {state.get('session_start', 'Unknown')}\n")
+
+
+@cli.command()
+def session_reset():
+    """Reset session - start fresh."""
+    print_header()
+    config.reset_session()
+    print_success("✅ Session reset - starting fresh\n")
+
+
+@cli.command()
+def session_archive():
+    """Archive current session."""
+    print_header()
+    archived_path = config.archive_session()
+    if archived_path:
+        print_success(f"✅ Session archived to: {archived_path}\n")
+    else:
+        print_info("ℹ️  No session to archive\n")
 
 
 if __name__ == '__main__':

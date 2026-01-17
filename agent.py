@@ -3,6 +3,7 @@ import re
 import os
 from pathlib import Path
 from typing import Dict, Any, List
+from datetime import datetime
 from ollama_client import OllamaClient, think_prepare_implement
 from file_manager import FileManager
 from web_client import WebClient
@@ -96,11 +97,14 @@ class Agent:
             return {"error": "Ollama not available"}
         
         try:
+            # Inject session context into prompt for continuity
+            context_prompt = self._build_context_prompt(prompt)
+            
             if use_workflow:
-                result = think_prepare_implement(prompt, client=self.client)
+                result = think_prepare_implement(context_prompt, client=self.client)
             else:
                 result = {
-                    "implementation": self.client.generate(prompt)
+                    "implementation": self.client.generate(context_prompt)
                 }
         except Exception as e:
             logger.error(f"❌ Agent execution failed: {e}")
@@ -113,11 +117,49 @@ class Agent:
         # Store in session
         self.session_state["messages"].append({
             "prompt": prompt,
-            "result": result
+            "result": result,
+            "timestamp": datetime.now().isoformat()
         })
+        
+        # Update project context based on what was created
+        self._update_project_context()
         self._save_state()
         
         return result
+    
+    def _build_context_prompt(self, prompt: str) -> str:
+        """Build prompt with session context for memory."""
+        context_parts = []
+        
+        # Add project context if available
+        if self.session_state.get("project_context"):
+            context_parts.append(f"PROJECT CONTEXT:\n{self.session_state['project_context']}\n")
+        
+        # Add recent message history (last 5 messages)
+        recent_messages = self.session_state.get("messages", [])[-5:]
+        if recent_messages:
+            context_parts.append("RECENT WORK:")
+            for msg in recent_messages:
+                context_parts.append(f"- {msg['prompt'][:100]}")
+        
+        # Add files created in this session
+        if self.session_state.get("files_created"):
+            context_parts.append(f"\nFILES CREATED THIS SESSION:\n" + 
+                               "\n".join(self.session_state["files_created"]))
+        
+        # Build final prompt with context
+        if context_parts:
+            return "\n".join(context_parts) + "\n\nCURRENT TASK:\n" + prompt
+        return prompt
+    
+    def _update_project_context(self):
+        """Update project context based on created files."""
+        if self.session_state.get("files_created"):
+            files = self.session_state["files_created"]
+            self.session_state["project_context"] = (
+                f"Working on project with {len(files)} file(s): {', '.join(files[-5:])}"
+            )
+    
     
     def _auto_execute(self, implementation: str):
         """
